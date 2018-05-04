@@ -63,6 +63,8 @@ var Server = function(port, str) {
         console.log("[*] 刷新" + self.port + "優惠券");
     }
 
+    self.updateCoupons();
+    
     self.proxy.use((req, res, next) => {
         if (['/coupon/get_detail', '/coupon/redeem', '/coupon/get_list'].indexOf(req.url) == -1)
             next();
