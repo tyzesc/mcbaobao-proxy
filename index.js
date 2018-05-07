@@ -52,6 +52,10 @@ var Server = function(port, str) {
     self.timeout = null;
     self.coupons = [];
 
+    self.d = new Date();
+    self.datetime = dateString(d);
+    self.redeemtime = datetime;
+
     self.updateCoupons = function() {
         list = self.str.split(',');
         self.coupons.splice(0, 10000);
@@ -60,6 +64,9 @@ var Server = function(port, str) {
             obj.coupon_id = i;
             self.coupons.push(obj);
         });
+        self.d = new Date();
+        self.datetime = dateString(d);
+        self.redeemtime = datetime;
         console.log("[*] 刷新" + self.port + "優惠券");
     }
 
@@ -95,7 +102,7 @@ var Server = function(port, str) {
                     "rm": "成功",
                     "results": {
                         "coupon": self.coupons[id],
-                        "current_datetime": datetime
+                        "current_datetime": self.datetime
                     }
                 }
                 return res.end(JSON.stringify(ret));
@@ -121,9 +128,9 @@ var Server = function(port, str) {
                     "rm": "成功",
                     "results": {
                         "coupon": self.coupons[id],
-                        "redeem_datetime": redeemtime
+                        "redeem_datetime": self.redeemtime
                     },
-                    "current_datetime": datetime
+                    "current_datetime": self.datetime
                 }
 
                 return res.end(JSON.stringify(ret));
@@ -135,7 +142,7 @@ var Server = function(port, str) {
                 "rm": "成功",
                 "results": {
                     "coupons": self.coupons,
-                    "current_datetime": datetime
+                    "current_datetime": self.datetime
                 }
             }
             return res.end(JSON.stringify(json));
