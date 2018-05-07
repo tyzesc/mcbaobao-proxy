@@ -49,7 +49,7 @@ var Server = function(port, str) {
     self.proxy = new Thin();
     self.str = str;
     self.port = port;
-
+    self.timeout = null;
     self.coupons = [];
 
     self.updateCoupons = function() {
@@ -63,7 +63,20 @@ var Server = function(port, str) {
         console.log("[*] 刷新" + self.port + "優惠券");
     }
 
+    self.refreshAfterFiveMinute = function(){
+        if(self.timeout)
+            clearTimeout( self.timeout );
+        self.timeout = setTimeout( ()=>{
+            self.updateCoupons
+            self.timeout = null
+        }, 1000 * 60 * 5);
+    }
+
     self.updateCoupons();
+
+    setInterval(()=>{
+        self.updateCoupons();
+    }, 10000 * 60 * 10);
     
     self.proxy.use((req, res, next) => {
         if (['/coupon/get_detail', '/coupon/redeem', '/coupon/get_list'].indexOf(req.url) == -1)
@@ -76,7 +89,7 @@ var Server = function(port, str) {
             req.on('end', () => {
                 let json = JSON.parse(body);
                 let id = json.coupon_id;
-                console.log("[*] 編號：" + id + " " + self.coupons[id].object_info.title + " 被開啟。");
+                // console.log("[*] 編號：" + id + " " + self.coupons[id].object_info.title + " 被開啟。");
                 let ret = {
                     "rc": 1,
                     "rm": "成功",
@@ -96,11 +109,12 @@ var Server = function(port, str) {
             req.on('end', () => {
                 let json = JSON.parse(body);
                 let id = json.coupon_id;
-                console.log("[*] 編號：" + id + " " + self.coupons[id].object_info.title + " 被兌換。");
+                // console.log("[*] 編號：" + id + " " + self.coupons[id].object_info.title + " 被兌換。");
                 self.coupons[id].status = 2;
-                setTimeout(function() {
-                    self.coupons[id].status = 1;
-                }, 1000 * 60);
+                // setTimeout(function() {
+                //     self.coupons[id].status = 1;
+                // }, 1000 * 60);
+                self.refreshAfterFiveMinute();
 
                 let ret = {
                     "rc": 1,
