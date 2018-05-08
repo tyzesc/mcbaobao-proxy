@@ -1,6 +1,16 @@
 var Thin = require('./lib/thin.js');
 var fs = require('fs');
 
+Date = (()=>{
+    var origin = Date;
+    return function(){
+        var d = new origin();
+        var offset = d.getTimezoneOffset() + 480;
+        d.setMinutes(d.getMinutes() + offset);
+        return d;
+    }
+})();
+
 function dateString(obj) {
     let yyyy = obj.toLocaleDateString().slice(0, 4)
     let MM = (obj.getMonth() + 1 < 10 ? '0' : '') + (obj.getMonth() + 1);
@@ -11,20 +21,18 @@ function dateString(obj) {
     return yyyy + '/' + MM + '/' + dd + ' ' + h + ':' + m + ':' + s;
 }
 
-let d = new Date();
-var datetime = dateString(d);
-var redeemtime = datetime;
-
-function coupon(id) {
+function coupon(id, offset) {
     let pic_id = id.toString();
     while (pic_id.length < 3)
         pic_id = "0" + pic_id;
+
     let date = new Date();
-    date.setDate(d.getDate() + 2);
+    date.setDate( date.getDate() + parseInt(offset) + 2);
     date.setHours(23);
     date.setMinutes(59);
     date.setSeconds(59);
     let e = dateString(date);
+
     let c = {
         "coupon_id": 0,
         "type": "coupon",
@@ -40,6 +48,7 @@ function coupon(id) {
             "redeem_end_datetime": e
         }
     }
+
     return c;
 }
 
@@ -53,46 +62,58 @@ var Server = function(port, str) {
     self.coupons = [];
 
     self.d = new Date();
-    self.datetime = dateString(d);
-    self.redeemtime = datetime;
+    self.datetime = dateString(self.d);
 
     self.updateCoupons = function() {
         list = self.str.split(',');
         self.coupons.splice(0, 10000);
         list.map((elem, i) => {
-            let obj = coupon(elem);
+            let offset = elem.split('#')[1] || 0;
+            let obj = coupon(elem.split('#')[0], offset);
             obj.coupon_id = i;
             self.coupons.push(obj);
         });
         self.d = new Date();
-        self.datetime = dateString(d);
-        self.redeemtime = datetime;
-        console.log("[*] 刷新" + self.port + "優惠券");
+        self.datetime = dateString(self.d);
+        console.log("[*] 刷新 " + self.port + " 優惠券");
     }
 
     self.refreshAfterFiveMinute = function(){
-        if(self.timeout)
+        //console.log("兌換優惠券 將在30秒後更新");
+        if(self.timeout){
+            console.log("delete origin timeout");
             clearTimeout( self.timeout );
+        }
+
         self.timeout = setTimeout( ()=>{
-            self.updateCoupons
-            self.timeout = null
+            self.updateCoupons();
+            self.timeout = null;
         }, 1000 * 60 * 5);
     }
 
     self.updateCoupons();
 
     setInterval(()=>{
-        self.updateCoupons();
-    }, 10000 * 60 * 10);
+        if(!self.timeout)
+            self.updateCoupons();
+        else
+            console.log("有timeout");
+    }, 1000 * 60 * 10);
     
     self.proxy.use((req, res, next) => {
         if (['/coupon/get_detail', '/coupon/redeem', '/coupon/get_list'].indexOf(req.url) == -1)
             next();
+
+        self.d = new Date();
+        self.datetime = dateString(self.d);
+
         if (req.url === '/coupon/get_detail') {
             let body = '';
+
             req.on('data', chunk => {
                 body += chunk.toString(); // convert Buffer to string
             });
+
             req.on('end', () => {
                 let json = JSON.parse(body);
                 let id = json.coupon_id;
@@ -118,22 +139,21 @@ var Server = function(port, str) {
                 let id = json.coupon_id;
                 // console.log("[*] 編號：" + id + " " + self.coupons[id].object_info.title + " 被兌換。");
                 self.coupons[id].status = 2;
-                // setTimeout(function() {
-                //     self.coupons[id].status = 1;
-                // }, 1000 * 60);
+
                 self.refreshAfterFiveMinute();
 
-                let ret = {
+                let ret = JSON.stringify({
                     "rc": 1,
                     "rm": "成功",
                     "results": {
                         "coupon": self.coupons[id],
-                        "redeem_datetime": self.redeemtime
+                        "redeem_datetime": self.datetime
                     },
                     "current_datetime": self.datetime
-                }
+                });
 
-                return res.end(JSON.stringify(ret));
+                self.coupons[id].redeem_datetime = self.datetime;
+                return res.end(ret);
             });
         }
         if (req.url === '/coupon/get_list') {
