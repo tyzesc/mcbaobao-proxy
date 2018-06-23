@@ -12,7 +12,7 @@ Date = (()=>{
 })();
 
 function dateString(obj) {
-    let yyyy = obj.toLocaleDateString().slice(0, 4)
+    let yyyy = obj.getYear() + 1900;
     let MM = (obj.getMonth() + 1 < 10 ? '0' : '') + (obj.getMonth() + 1);
     let dd = (obj.getDate() < 10 ? '0' : '') + obj.getDate();
     let h = (obj.getHours() < 10 ? '0' : '') + obj.getHours();
